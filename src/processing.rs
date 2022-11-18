@@ -142,10 +142,14 @@ pub async fn get_delegators(ledger_hash: &str) -> Result<Vec<LedgerAccount>> {
         ledger_hash,
     );
 
+    println!("ledger url - {}", url);
+
     let ledger: Vec<LedgerAccountJson> =
         serde_json::from_slice(&reqwest::get(url).await?.bytes().await?.to_vec())?;
 
     let delegators = extract_delegators(&ledger);
+
+    println!("delegators - {}", delegators.len());
 
     Ok(delegators)
 }
