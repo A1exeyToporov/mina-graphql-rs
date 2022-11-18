@@ -1,6 +1,6 @@
 use crate::consts::*;
 use crate::graphql::*;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, FixedOffset};
 use graphql_client::GraphQLQuery;
 use rust_decimal::prelude::FromPrimitive;
@@ -37,23 +37,12 @@ pub async fn get_staking_data(
     endpoint: &str,
     epoch: i64,
 ) -> Result<(String, String, String, Vec<LedgerAccount>)> {
-    let request_body = StakingData::build_query(staking_data::Variables {});
-    let data: staking_data::ResponseData = graphql_query(endpoint, &request_body).await?;
 
-    let best_chain = match &data.best_chain {
-        None => bail!("best_chain is None"),
-        Some(best_chain) => match best_chain.len() == 1 {
-            false => bail!("should only have 1 best_chain"),
-            true => &best_chain[0],
-        },
-    };
-    let best_epoch = &best_chain.protocol_state.consensus_state.epoch;
-
-    let (seed, total_currency, ledger_hash) = if best_epoch != &epoch.to_string() {
+    let (seed, total_currency, ledger_hash) = {
         let request_body =
             StakingDataExplorer::build_query(staking_data_explorer::Variables { epoch });
         let data: staking_data_explorer::ResponseData =
-            graphql_query(MINA_EXPLORER_ENDPOINT, &request_body).await?;
+            graphql_query(endpoint, &request_body).await?;
 
         let explorer_staking_epoch_data = data.blocks[0]
             .as_ref()
@@ -93,13 +82,6 @@ pub async fn get_staking_data(
             total_currency.to_string(),
             ledger_hash.clone(),
         )
-    } else {
-        let staking_epoch_data = &best_chain.protocol_state.consensus_state.staking_epoch_data;
-        let seed = &staking_epoch_data.seed;
-        let total_currency = &staking_epoch_data.ledger.total_currency;
-        let ledger_hash = &staking_epoch_data.ledger.hash;
-
-        (seed.clone(), total_currency.clone(), ledger_hash.clone())
     };
 
     let delegators = get_delegators(&ledger_hash).await?;
